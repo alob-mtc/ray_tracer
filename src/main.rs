@@ -1,3 +1,7 @@
+mod vec3;
+
+use vec3::Vec3;
+
 // construct a ppm file for image data
 fn write_ppm(w: i32, h: i32, max_value: i32) {
     println!("P3\n{} {}\n{}", w, h, max_value);
@@ -22,5 +26,12 @@ fn main() {
     let height = 100;
     let max_value = 255;
 
-    write_ppm(width, height, max_value)
+    write_ppm(width, height, max_value);
+
+    let v1 = Vec3::new(1f32, 2f32, 3f32);
+    let v2 = Vec3::new(2f32, 6f32, 6f32);
+
+    let v3 = v1 + v2;
+
+    println!("Added v1 and v2 {:?}", v3)
 }
