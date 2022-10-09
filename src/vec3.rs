@@ -97,6 +97,16 @@ impl ops::Div<f32> for Vec3 {
     }
 }
 
+impl ops::Mul<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Vec3 {
+            e: [self * rhs.e[0], self * rhs.e[1], self * rhs.e[2]],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
