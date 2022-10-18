@@ -1,54 +1,79 @@
+mod camera;
+mod hittable;
+mod hittable_list;
 mod ray;
+mod sphere;
 mod vec3;
 
+use camera::Camera;
+use hittable::{HitRecord, Hittable};
+use hittable_list::HittableList;
 use ray::Ray;
+use sphere::Sphere;
 use vec3::Vec3;
 
-fn hit_sphere(center: Vec3, redius: f32, r: &Ray) -> f32 {
-    let oc = r.origin() - center;
-    let a = Vec3::dot(&r.direction(), &r.direction());
-    let b = 2.0 * Vec3::dot(&oc, &r.direction());
-    let c = Vec3::dot(&oc, &oc) - redius * redius;
+use rand::prelude::*;
 
-    let discriminant = b * b - 4.0 * a * c;
+fn color(r: &Ray, world: &HittableList) -> Vec3 {
+    let mut rec = HitRecord::default();
 
-    if discriminant < 0.0 {
-        return -1.0;
+    if world.hit(r, 0.0, std::f32::MAX, &mut rec) {
+        let target = rec.p() + rec.normal() + random_in_unit_shpere();
+        return 0.5 * color(&Ray::ray(rec.p(), target - rec.p()), world);
     } else {
-        return (-b - discriminant.sqrt()) / 2.0 * a;
+        let unit_direction = Vec3::unit_vector(&r.direction());
+        let t = 0.5 * (unit_direction.y() + 1.0);
+        return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t;
     }
 }
 
-fn color(r: &Ray) -> Vec3 {
-    let t = hit_sphere(Vec3::new(0.0, 0.0, -1.0), 0.5, r);
-    if t > 0.0 {
-        let N = Vec3::unit_vector(&(r.point_at_parameter(t) - Vec3::new(0.0, 0.0, -1.0)));
-        return 0.5 * Vec3::new(N.x() + 1.0, N.y() + 1.0, N.z() + 1.0);
+fn random_in_unit_shpere() -> Vec3 {
+    let mut p = Vec3::default();
+    let mut rng = rand::thread_rng();
+
+    loop {
+        p = 2.0 * Vec3::new(rng.gen::<f32>(), rng.gen::<f32>(), rng.gen::<f32>())
+            - Vec3::new(1.0, 1.0, 1.0);
+        if p.squared_length() < 1.0 {
+            return p;
+        }
     }
-    let unit_direction = Vec3::unit_vector(&r.direction());
-    let t = 0.5 * (unit_direction.y() + 1.0);
-    Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t
 }
 
 fn main() {
-    let w = 200;
-    let h = 100;
+    let width = 200;
+    let height = 100;
+    let samples = 100;
     let max_value = 255;
 
-    let lower_left_corner = Vec3::new(-2.0, -1.0, -1.0);
-    let horizontal = Vec3::new(4.0, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, 2.0, 0.0);
-    let origin = Vec3::new(0.0, 0.0, 0.0);
+    let mut list: Vec<Box<dyn Hittable>> = Vec::new();
+    list.push(Box::new(Sphere::sphere(
+        Vec3::new(0.0, -100.5, -1.0),
+        100.0,
+    )));
+    list.push(Box::new(Sphere::sphere(Vec3::new(0.0, 0.0, -1.0), 0.5)));
+    let world = HittableList::new(list);
+
+    let cam = Camera::camera();
+
+    let mut rng = rand::thread_rng();
 
     // construct a ppm file for image data
-    println!("P3\n{} {}\n{}", w, h, max_value);
-    for j in (0..h).rev() {
-        for i in 0..w {
-            let u = i as f32 / w as f32;
-            let v = j as f32 / h as f32;
+    println!("P3\n{} {}\n{}", width, height, max_value);
+    for j in (0..height).rev() {
+        for i in 0..width {
+            let mut col = Vec3::default();
 
-            let r = Ray::ray(origin, lower_left_corner + horizontal * u + vertical * v);
-            let col = color(&r);
+            for _ in 0..samples {
+                let u = (i as f32 + rng.gen::<f32>()) / width as f32;
+                let v = (j as f32 + rng.gen::<f32>()) / height as f32;
+
+                let r = cam.get_ray(u, v);
+                col = col + color(&r, &world);
+            }
+
+            col = col / samples as f32;
+            col = Vec3::new(col.r().sqrt(), col.g().sqrt(), col.b().sqrt());
 
             let ir = (255.99 * col.r()) as i32;
             let ig = (255.99 * col.g()) as i32;
